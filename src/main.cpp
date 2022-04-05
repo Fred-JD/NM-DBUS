@@ -76,7 +76,7 @@ int main(int argc, const char* argv[]) {
             printf("Disable\n");
         }
         else {
-            nm.activate_wireless();
+            nm.activate_wireless2();
             printf("Enable\n");
         }
         break;
@@ -93,7 +93,7 @@ int main(int argc, const char* argv[]) {
         cin >> num2;
         printf("\n Type in password\t");
         cin >> password;
-        nm.connect_wireless(--num2, password);
+        nm.saved_wireless(--num2, password);
 
         break;
 

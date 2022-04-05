@@ -74,8 +74,10 @@ public:
     void print_connection(const char * path);
     void print_active_connection_details(const std::string obj_path);
     void connect_wireless(const int num_ap, const std::string password);
+    void saved_wireless(const int num_ap, const std::string password);
     void disconnect_wireless();
     void activate_wireless();
+    void activate_wireless2();
     const std::vector<std::string> get_devicePaths();
     const std::vector<std::string> get_deviceTypes();
     const std::vector<std::string> get_activeCPaths();

@@ -227,7 +227,7 @@ void NewtworkManager::read_wireless_accesspoints() {
     }
 }
 
-void NewtworkManager::connect_wireless(const int num_ap, const std::string password) {
+void NewtworkManager::saved_wireless(const int num_ap, const std::string password) {
     GVariantBuilder connection_builder;
     GVariantBuilder setting_builder;
     char *          uuid;
@@ -239,17 +239,14 @@ void NewtworkManager::connect_wireless(const int num_ap, const std::string passw
     int n = (access_points[num_ap].obj_dir).length();
     char dev_path[n + 1];
     strcpy(dev_path, (access_points[num_ap].obj_dir).c_str());
-    g_print("%s\n", dev_path);
 
     n = (access_points[num_ap].ssid).length();
     char ssid_char[n + 1];
     strcpy(ssid_char, (access_points[num_ap].ssid).c_str());
-    g_print("%s\n", ssid_char);
 
     n = password.length();
     char password_char[n + 1];
     strcpy(password_char, password.c_str());
-    g_print("%s\n", password_char);
 
     proxy2 = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
                                         G_DBUS_PROXY_FLAGS_NONE,
@@ -395,6 +392,175 @@ void NewtworkManager::connect_wireless(const int num_ap, const std::string passw
     }
 }
 
+void NewtworkManager::connect_wireless(const int num_ap, const std::string password) {
+    GVariantBuilder connection_builder;
+    GVariantBuilder setting_builder;
+    char *          uuid;
+    const char *    new_con_path;
+    GVariant *      ret, *ret2, *value;
+    GError *        error = NULL;
+    GDBusProxy *proxy, *proxy2;
+
+    int n = (access_points[num_ap].obj_dir).length();
+    char dev_path[n + 1];
+    strcpy(dev_path, (access_points[num_ap].obj_dir).c_str());
+
+    n = (access_points[num_ap].ssid).length();
+    char ssid_char[n + 1];
+    strcpy(ssid_char, (access_points[num_ap].ssid).c_str());
+
+    n = device_paths[device_path_num].length();
+    char dev_obj_path[n + 1];
+    strcpy(dev_obj_path, (device_paths[device_path_num].c_str()));
+
+    n = password.length();
+    char password_char[n + 1];
+    strcpy(password_char, password.c_str());
+
+    proxy2 = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
+                                        G_DBUS_PROXY_FLAGS_NONE,
+                                        NULL,
+                                        NM_DBUS_SERVICE,
+                                        dev_path,
+                                        "org.freedesktop.DBus.Properties",
+                                        NULL,
+                                        NULL);
+
+    g_assert(proxy2);
+
+    /* Request the all the configuration of the Connection */
+    ret2 = g_dbus_proxy_call_sync(proxy2,
+                                "Get",
+                                g_variant_new("(ss)", NM_DBUS_INTERFACE_ACCESS_POINT, "Ssid"),
+                                G_DBUS_CALL_FLAGS_NONE,
+                                -1,
+                                NULL,
+                                &error);
+    if (!ret2) {
+        g_dbus_error_strip_remote_error(error);
+        g_warning("Failed to get Ssid: %s\n", error->message);
+        g_error_free(error);
+        return;
+    }
+
+    g_variant_get(ret2, "(v)", &value);
+
+    /* Create a D-Bus proxy; NM_DBUS_* defined in nm-dbus-interface.h */
+    proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
+                                        G_DBUS_PROXY_FLAGS_NONE,
+                                        NULL,
+                                        NM_DBUS_SERVICE,
+                                        NM_DBUS_PATH,
+                                        NM_DBUS_INTERFACE,
+                                        NULL,
+                                        &error);
+    if (!proxy) {
+        g_dbus_error_strip_remote_error(error);
+        g_print("Could not create NewtworkManager D-Bus proxy: %s\n", error->message);
+        g_error_free(error);
+        return;
+    }
+
+    /* Initialize connection GVariantBuilder */
+    g_variant_builder_init(&connection_builder, G_VARIANT_TYPE("a{sa{sv}}"));
+
+    /* Build up the 'connection' Setting */
+    g_variant_builder_init(&setting_builder, G_VARIANT_TYPE("a{sv}"));
+
+    uuid = nm_utils_uuid_generate();
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_CONNECTION_UUID,
+                        g_variant_new_string(uuid));
+    g_free(uuid);
+
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_CONNECTION_ID,
+                        g_variant_new_string(ssid_char));
+
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_CONNECTION_TYPE,
+                        g_variant_new_string(NM_SETTING_WIRELESS_SETTING_NAME));
+
+    g_variant_builder_add(&connection_builder,
+                        "{sa{sv}}",
+                        NM_SETTING_CONNECTION_SETTING_NAME,
+                        &setting_builder);
+
+    /* Add the (empty) 'wired' Setting */
+    g_variant_builder_init(&setting_builder, G_VARIANT_TYPE("a{sv}"));
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_WIRELESS_SSID,
+                        value);
+
+    g_variant_builder_add(&connection_builder,
+                        "{sa{sv}}",
+                        NM_SETTING_WIRELESS_SETTING_NAME,
+                        &setting_builder);
+
+    /* Build up the 'Password' Setting */
+    g_variant_builder_init(&setting_builder, G_VARIANT_TYPE("a{sv}"));
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,
+                        g_variant_new_string("wpa-psk"));
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_WIRELESS_SECURITY_PSK,
+                        g_variant_new_string(password_char));
+
+    g_variant_builder_add(&connection_builder,
+                        "{sa{sv}}",
+                        NM_SETTING_WIRELESS_SECURITY_SETTING_NAME,
+                        &setting_builder);
+
+    /* Build up the 'ipv4' Setting */
+    g_variant_builder_init(&setting_builder, G_VARIANT_TYPE("a{sv}"));
+    g_variant_builder_add(&setting_builder,
+                        "{sv}",
+                        NM_SETTING_IP_CONFIG_METHOD,
+                        g_variant_new_string(NM_SETTING_IP4_CONFIG_METHOD_AUTO));
+    g_variant_builder_add(&connection_builder,
+                        "{sa{sv}}",
+                        NM_SETTING_IP4_CONFIG_SETTING_NAME,
+                        &setting_builder);
+
+    /* Call AddConnection with the connection dictionary as argument.
+    * (g_variant_new() will consume the floating GVariant returned from
+    * &connection_builder, and g_dbus_proxy_call_sync() will consume the
+    * floating variant returned from g_variant_new(), so no cleanup is needed.
+    */
+    ret = g_dbus_proxy_call_sync(proxy,
+                                "AddAndActivateConnection",
+                                g_variant_new("(a{sa{sv}}oo)", &connection_builder, dev_obj_path, "/"),
+                                G_DBUS_CALL_FLAGS_NONE,
+                                -1,
+                                NULL,
+                                &error);
+    if (ret) {
+        g_variant_get(ret, "(&o)", &new_con_path);
+        g_print("Added: %s\n", new_con_path);
+        g_variant_unref(ret);
+    } else {
+        g_dbus_error_strip_remote_error(error);
+        g_print("Error adding connection: %s\n", error->message);
+        g_clear_error(&error);
+    }
+
+    if (proxy) {
+        g_object_unref(proxy);
+    }
+    if (proxy2) {
+        g_object_unref(proxy2);
+    }
+    if (value) {
+        g_variant_unref(value);
+    }
+}
+
 void NewtworkManager::disconnect_wireless() {
     GDBusProxy *props_proxy;
     GError *     error = NULL;
@@ -469,7 +635,7 @@ void NewtworkManager::activate_wireless() {
 
     ret = g_dbus_proxy_call_sync(props_proxy,
                                 "ActivateConnection",
-                                g_variant_new("(ooo)", sav_con, "/org/freedesktop/NetworkManager/Devices/3", "/"),
+                                g_variant_new("(ooo)", sav_con, dev_path, "/"),
                                 G_DBUS_CALL_FLAGS_NONE,
                                 -1,
                                 NULL,
@@ -477,6 +643,56 @@ void NewtworkManager::activate_wireless() {
     if (ret) {
         g_variant_get(ret, "(&o)", &new_con_path);
         g_print("Added: %s\n", new_con_path);
+        g_variant_unref(ret);
+    } else {
+        g_dbus_error_strip_remote_error(error);
+        g_print("Error adding connection: %s\n", error->message);
+        g_clear_error(&error);
+    }
+
+    g_object_unref(props_proxy);
+}
+
+void NewtworkManager::activate_wireless2() {
+    GDBusProxy *props_proxy;
+    GError *     error = NULL;
+    GVariant *   ret;
+    char * new_con_path;
+
+    int n = device_paths[device_path_num].length();
+    char dev_path[n + 1];
+    strcpy(dev_path, device_paths[device_path_num].c_str());
+    g_print("%s\n", dev_path);
+
+    /* Create a D-Bus proxy to get the object properties from the NM Manager
+    * object.  NM_DBUS_* defines are from nm-dbus-interface.h.
+    */
+    props_proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
+                                                G_DBUS_PROXY_FLAGS_NONE,
+                                                NULL,
+                                                NM_DBUS_SERVICE,
+                                                dev_path,
+                                                "org.freedesktop.DBus.Properties",
+                                                NULL,
+                                                NULL);
+    
+    g_assert(props_proxy);
+
+    ret = g_dbus_proxy_call_sync(props_proxy,
+                                "Set",
+                                g_variant_new(
+                                    "(ssv)", 
+                                    NM_DBUS_INTERFACE_DEVICE, 
+                                    "Autoconnect",
+                                    g_variant_new_boolean(TRUE)
+                                ),
+                                G_DBUS_CALL_FLAGS_NONE,
+                                -1,
+                                NULL,
+                                &error);
+    if (ret) {
+        // g_variant_get(ret, "(&o)", &new_con_path);
+        // g_print("Added: %s\n", new_con_path);
         g_variant_unref(ret);
     } else {
         g_dbus_error_strip_remote_error(error);
