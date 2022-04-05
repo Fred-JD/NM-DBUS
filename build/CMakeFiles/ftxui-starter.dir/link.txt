@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/ftxui-starter.dir/src/main.cpp.o CMakeFiles/ftxui-starter.dir/src/nm_class.cpp.o  -o ftxui-starter  _deps/ftxui-build/libftxui-screen.a _deps/ftxui-build/libftxui-dom.a _deps/ftxui-build/libftxui-component.a -lnm -lgio-2.0 -lgobject-2.0 -lglib-2.0 _deps/ftxui-build/libftxui-dom.a _deps/ftxui-build/libftxui-screen.a -lpthread 
