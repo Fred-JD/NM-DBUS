@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/asus/Documents/nm-dbus/src/main.cpp
+iostream
+-
+nm_class.h
+/home/asus/Documents/nm-dbus/src/nm_class.h
+
+/home/asus/Documents/nm-dbus/src/nm_class.h
+stdlib.h
+-
+memory
+-
+string
+-
+vector
+-
+cstring
+-
+gio/gio.h
+-
+uuid/uuid.h
+-
+nm-dbus-interface.h
+-
+NetworkManager.h
+-
+
