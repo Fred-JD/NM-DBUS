@@ -66,7 +66,7 @@ int main(int argc, const char* argv[]) {
     
     case 4:
         printf("\n\n");
-        printf("\t1) Enable\n");
+        printf("\t1) Enable (!!Need sudo access)\n");
         printf("\t2) Disable\n");
 
         cin >> en_wifi;
@@ -76,7 +76,8 @@ int main(int argc, const char* argv[]) {
             printf("Disable\n");
         }
         else {
-            nm.activate_wireless2();
+            nm.activate_wireless();
+            
             printf("Enable\n");
         }
         break;

@@ -1,5 +1,18 @@
 #include "nm_class.h"
 
+// /* copied from libnm-core/nm-utils.c */
+// char *
+// nm_utils_uuid_generate(void)
+// {
+//     uuid_t uuid;
+//     char * buf;
+
+//     buf = g_malloc0(37);
+//     uuid_generate_random(uuid);
+//     uuid_unparse_lower(uuid, &buf[0]);
+//     return buf;
+// }
+
 NewtworkManager::NewtworkManager() {
     num_device = 0;
     read_device_paths();
@@ -404,18 +417,22 @@ void NewtworkManager::connect_wireless(const int num_ap, const std::string passw
     int n = (access_points[num_ap].obj_dir).length();
     char dev_path[n + 1];
     strcpy(dev_path, (access_points[num_ap].obj_dir).c_str());
+    g_print("%s\n", dev_path);
 
     n = (access_points[num_ap].ssid).length();
     char ssid_char[n + 1];
     strcpy(ssid_char, (access_points[num_ap].ssid).c_str());
+    g_print("%s\n", ssid_char);
 
     n = device_paths[device_path_num].length();
     char dev_obj_path[n + 1];
     strcpy(dev_obj_path, (device_paths[device_path_num].c_str()));
+    g_print("%s\n", dev_obj_path);
 
     n = password.length();
     char password_char[n + 1];
     strcpy(password_char, password.c_str());
+    g_print("%s\n", password_char);
 
     proxy2 = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
                                         G_DBUS_PROXY_FLAGS_NONE,
@@ -535,7 +552,10 @@ void NewtworkManager::connect_wireless(const int num_ap, const std::string passw
     */
     ret = g_dbus_proxy_call_sync(proxy,
                                 "AddAndActivateConnection",
-                                g_variant_new("(a{sa{sv}}oo)", &connection_builder, dev_obj_path, "/"),
+                                g_variant_new("(a{sa{sv}}oo*)", &connection_builder, 
+                                            g_variant_new_object_path(dev_obj_path),
+                                            g_variant_new_object_path("/")
+                                ),
                                 G_DBUS_CALL_FLAGS_NONE,
                                 -1,
                                 NULL,
@@ -626,8 +646,8 @@ void NewtworkManager::activate_wireless() {
                                                 G_DBUS_PROXY_FLAGS_NONE,
                                                 NULL,
                                                 NM_DBUS_SERVICE,
-                                                "/org/freedesktop/NewtworkManager",
-                                                "org.freedesktop.NewtworkManager",
+                                                NM_DBUS_PATH,
+                                                NM_DBUS_SERVICE,
                                                 NULL,
                                                 NULL);
     
@@ -635,7 +655,7 @@ void NewtworkManager::activate_wireless() {
 
     ret = g_dbus_proxy_call_sync(props_proxy,
                                 "ActivateConnection",
-                                g_variant_new("(ooo)", sav_con, dev_path, "/"),
+                                g_variant_new("(ooo)", "/", dev_path, "/"),
                                 G_DBUS_CALL_FLAGS_NONE,
                                 -1,
                                 NULL,
@@ -685,6 +705,56 @@ void NewtworkManager::activate_wireless2() {
                                     NM_DBUS_INTERFACE_DEVICE, 
                                     "Autoconnect",
                                     g_variant_new_boolean(TRUE)
+                                ),
+                                G_DBUS_CALL_FLAGS_NONE,
+                                -1,
+                                NULL,
+                                &error);
+    if (ret) {
+        // g_variant_get(ret, "(&o)", &new_con_path);
+        // g_print("Added: %s\n", new_con_path);
+        g_variant_unref(ret);
+    } else {
+        g_dbus_error_strip_remote_error(error);
+        g_print("Error adding connection: %s\n", error->message);
+        g_clear_error(&error);
+    }
+
+    g_object_unref(props_proxy);
+}
+
+void NewtworkManager::deactivate_wireless2() {
+    GDBusProxy *props_proxy;
+    GError *     error = NULL;
+    GVariant *   ret;
+    char * new_con_path;
+
+    int n = device_paths[device_path_num].length();
+    char dev_path[n + 1];
+    strcpy(dev_path, device_paths[device_path_num].c_str());
+    g_print("%s\n", dev_path);
+
+    /* Create a D-Bus proxy to get the object properties from the NM Manager
+    * object.  NM_DBUS_* defines are from nm-dbus-interface.h.
+    */
+    props_proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SYSTEM,
+                                                G_DBUS_PROXY_FLAGS_NONE,
+                                                NULL,
+                                                NM_DBUS_SERVICE,
+                                                dev_path,
+                                                "org.freedesktop.DBus.Properties",
+                                                NULL,
+                                                NULL);
+    
+    g_assert(props_proxy);
+
+    ret = g_dbus_proxy_call_sync(props_proxy,
+                                "Set",
+                                g_variant_new(
+                                    "(ssv)", 
+                                    NM_DBUS_INTERFACE_DEVICE, 
+                                    "Autoconnect",
+                                    g_variant_new_boolean(FALSE)
                                 ),
                                 G_DBUS_CALL_FLAGS_NONE,
                                 -1,
