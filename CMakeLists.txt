@@ -23,7 +23,7 @@ project(ftxui-starter
 )
 
 find_package(PkgConfig)
-pkg_check_modules(NMLIB "libnm")
+pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 libnm)
 
 add_executable(ftxui-starter src/main.cpp src/nm_class.cpp)
 target_include_directories(ftxui-starter PRIVATE src)
@@ -32,8 +32,7 @@ target_link_libraries(ftxui-starter
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component # Not needed for this example.
-  ${GTK_LIBRARIES}
-  ${NMLIB_LIBRARIES}
+  PkgConfig::deps
 )
 
 add_definitions( ${NMLIB_CFLAGS} ${NMLIB_CFLAGS_OTHER} )
